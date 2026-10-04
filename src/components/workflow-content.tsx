@@ -232,7 +232,13 @@ const environmentFields: { key: keyof Environment; label: string; placeholder: s
 
 const ENV_KEY = 'aoe1-environment-v01';
 const subscribeNoop = () => () => {};
-const getEnvironmentSnapshot = () => window.localStorage.getItem(ENV_KEY);
+const getEnvironmentSnapshot = () => {
+  try {
+    return window.localStorage.getItem(ENV_KEY);
+  } catch {
+    return null;
+  }
+};
 const getServerSnapshot = () => null;
 
 function parseEnvironment(raw: string | null): Environment {
