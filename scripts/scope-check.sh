@@ -43,7 +43,7 @@ done <<< "${changed}"
 allowlist=""
 if [ -n "${REPO}" ] && [ -n "${PR}" ]; then
     body="$(gh pr view "${PR}" --repo "${REPO}" --json body --jq .body)"
-    allowlist="$(echo "${body}" | grep -oiE '^scope:[^\n]*' | head -1 | sed -E 's/^scope://I')"
+    allowlist="$(echo "${body}" | grep -oiE '^scope:.*' | head -1 | sed -E 's/^scope://I')"
 fi
 if [ -n "${allowlist// /}" ]; then
     echo "SCOPE allowlist: ${allowlist}"
