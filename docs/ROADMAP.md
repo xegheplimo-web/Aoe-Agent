@@ -7,31 +7,31 @@ review dashboard. Functionality ≈ 5–10% of "plays a match"; technical founda
 
 ## Phases
 
-| Phase | Deliverable (gate) |
-|---|---|
-| P0 | CI green on `main` — DONE |
-| P1 | Runtime architecture: layered packages, Skill contract, `TrainVillagerSkill`, `ReplayEnvironment` |
-| P2 | HUD perception stability (custom digit reader optional; Tesseract stays fallback) |
-| P3 | `BUILD_HOUSE` verified end-to-end in scenario |
-| P4 | `GATHER_FOOD` / `GATHER_WOOD` verified |
-| P5 | Minimap parser + spatial memory (`MinimapCoord`/`WorldEstimate`) |
-| P6 | Autonomous Stone-Age economy loop (no idle villagers, pop-block handled) |
-| P7 | Stone → Tool autonomous |
-| P8 | Barracks + `TRAIN_MILITARY` + control groups |
-| P9 | Scout + enemy location |
-| P10 | Attack/defend (threshold attack → priority targets → retreat) |
-| P11 | Deterministic full-match bot |
-| P12 | Multiple civilizations / build orders |
-| P13 | Imitation learning from self-recorded human play |
-| P14 | RL scoped to micro modules (combat, worker allocation, timing) |
-| P15 | Self-play / evaluation league |
+| Phase | Deliverable (gate)                                                                                |
+| ----- | ------------------------------------------------------------------------------------------------- |
+| P0    | CI green on `main` — DONE                                                                         |
+| P1    | Runtime architecture: layered packages, Skill contract, `TrainVillagerSkill`, `ReplayEnvironment` |
+| P2    | HUD perception stability (custom digit reader optional; Tesseract stays fallback)                 |
+| P3    | `BUILD_HOUSE` verified end-to-end in scenario                                                     |
+| P4    | `GATHER_FOOD` / `GATHER_WOOD` verified                                                            |
+| P5    | Minimap parser + spatial memory (`MinimapCoord`/`WorldEstimate`)                                  |
+| P6    | Autonomous Stone-Age economy loop (no idle villagers, pop-block handled)                          |
+| P7    | Stone → Tool autonomous                                                                           |
+| P8    | Barracks + `TRAIN_MILITARY` + control groups                                                      |
+| P9    | Scout + enemy location                                                                            |
+| P10   | Attack/defend (threshold attack → priority targets → retreat)                                     |
+| P11   | Deterministic full-match bot                                                                      |
+| P12   | Multiple civilizations / build orders                                                             |
+| P13   | Imitation learning from self-recorded human play                                                  |
+| P14   | RL scoped to micro modules (combat, worker allocation, timing)                                    |
+| P15   | Self-play / evaluation league                                                                     |
 
 ## Skill sequence (P1→P8)
 
 1. `TRAIN_VILLAGER` (exists) · 2. `SELECT_VILLAGER` · 3. `BUILD_HOUSE` ·
-4. `GATHER_FOOD` · 5. `GATHER_WOOD` · 6. `BUILD_STORAGE_PIT` · 7. `BUILD_GRANARY` ·
-8. `SCOUT` · 9. `BUILD_BARRACKS` · 10. `ADVANCE_AGE` · 11. `TRAIN_MILITARY` ·
-12. `FORM_ARMY` · 13. `ATTACK_MOVE` · 14. `RETREAT` · 15. `EXPAND_ECONOMY`
+2. `GATHER_FOOD` · 5. `GATHER_WOOD` · 6. `BUILD_STORAGE_PIT` · 7. `BUILD_GRANARY` ·
+3. `SCOUT` · 9. `BUILD_BARRACKS` · 10. `ADVANCE_AGE` · 11. `TRAIN_MILITARY` ·
+4. `FORM_ARMY` · 13. `ATTACK_MOVE` · 14. `RETREAT` · 15. `EXPAND_ECONOMY`
 
 ## Milestones
 

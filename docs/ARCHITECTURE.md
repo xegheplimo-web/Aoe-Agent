@@ -39,16 +39,16 @@ hack and NOT an LLM-per-frame system.
 
 ## Layers
 
-| Layer | Package | Owns |
-|---|---|---|
-| Platform | `aoe1/platform/` | Window find/focus, guarded capture + input, F9 safety, fingerprint |
-| Perception | `aoe1/perception/` | HUD OCR, template UI checks → typed observations (never decisions) |
-| World | `aoe1/world/` | `GameState` model + spatial memory (later: minimap, entity tracking) |
-| Skills | `aoe1/skills/` | `Skill` contract + concrete skills (`TrainVillagerSkill`, …) + `SkillManager` |
-| Runtime | `aoe1/runtime/` | `AgentRuntime` loop, `SessionPaths`, `ReplayEnvironment` |
-| Telemetry | `aoe1/telemetry/` | `events.jsonl`, frames, run artifacts |
-| Strategy | `aoe1/strategy/` | (later) build orders, BT, utility scoring |
-| Data | `aoe1/data/` | (later) civs/units/buildings/tech tables |
+| Layer      | Package            | Owns                                                                          |
+| ---------- | ------------------ | ----------------------------------------------------------------------------- |
+| Platform   | `aoe1/platform/`   | Window find/focus, guarded capture + input, F9 safety, fingerprint            |
+| Perception | `aoe1/perception/` | HUD OCR, template UI checks → typed observations (never decisions)            |
+| World      | `aoe1/world/`      | `GameState` model + spatial memory (later: minimap, entity tracking)          |
+| Skills     | `aoe1/skills/`     | `Skill` contract + concrete skills (`TrainVillagerSkill`, …) + `SkillManager` |
+| Runtime    | `aoe1/runtime/`    | `AgentRuntime` loop, `SessionPaths`, `ReplayEnvironment`                      |
+| Telemetry  | `aoe1/telemetry/`  | `events.jsonl`, frames, run artifacts                                         |
+| Strategy   | `aoe1/strategy/`   | (later) build orders, BT, utility scoring                                     |
+| Data       | `aoe1/data/`       | (later) civs/units/buildings/tech tables                                      |
 
 ## Skill Contract
 
