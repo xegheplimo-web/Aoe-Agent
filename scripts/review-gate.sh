@@ -20,8 +20,8 @@ PR="${2:?pr number required}"
 HEAD="${3:?head sha required}"
 OWNER="${REPO%%/*}"
 NAME="${REPO##*/}"
-DEADLINE=$((SECONDS + ${REVIEW_TIMEOUT_SECONDS:-720}))
-INTERVAL="${REVIEW_INTERVAL_SECONDS:-30}"
+DEADLINE=$((SECONDS + ${REVIEW_TIMEOUT_SECONDS:-1800}))
+INTERVAL="${REVIEW_INTERVAL_SECONDS:-45}"
 
 QUERY='query($owner:String!,$name:String!,$pr:Int!,$cursor:String){
   repository(owner:$owner,name:$name){
@@ -52,7 +52,7 @@ all_threads() {
     echo "${unresolved_total}"
 }
 
-echo "REVIEW-GATE ${REPO}#${PR} head=${HEAD:0:8} timeout=${REVIEW_TIMEOUT_SECONDS:-720}s"
+echo "REVIEW-GATE ${REPO}#${PR} head=${HEAD:0:8} timeout=${REVIEW_TIMEOUT_SECONDS:-1800}s"
 while :; do
     out="$(gh api graphql -F owner="${OWNER}" -F name="${NAME}" -F pr="${PR}" -f query="${QUERY}")"
     pr_json="$(echo "${out}" | jq '.data.repository.pullRequest')"
