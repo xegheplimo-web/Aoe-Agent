@@ -13,13 +13,18 @@ from pathlib import Path
 import cv2
 import pytesseract
 
-from aoe1.desktop import GameWindow, start_stop_key
-from aoe1.vision import Perception, crop, save_png
+from aoe1.perception import Perception, crop, save_png
+from aoe1.platform import GameWindow, start_stop_key
 
 ROOT = Path(__file__).resolve().parent
 PACKAGES = (
-    "numpy", "opencv-python", "mss", "PyAutoGUI",
-    "pytesseract", "psutil", "pywin32",
+    "numpy",
+    "opencv-python",
+    "mss",
+    "PyAutoGUI",
+    "pytesseract",
+    "psutil",
+    "pywin32",
 )
 
 
@@ -31,12 +36,16 @@ def save_sample_images(directory, frame, rois):
         image = crop(frame, roi)
         save_png(directory / f"{name}.png", image)
         x, y, width, height = map(int, roi)
-        cv2.rectangle(
-            annotated, (x, y), (x + width - 1, y + height - 1), (0, 255, 0), 1
-        )
+        cv2.rectangle(annotated, (x, y), (x + width - 1, y + height - 1), (0, 255, 0), 1)
         cv2.putText(
-            annotated, name, (x, max(14, y - 4)),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1, cv2.LINE_AA,
+            annotated,
+            name,
+            (x, max(14, y - 4)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.4,
+            (0, 255, 255),
+            1,
+            cv2.LINE_AA,
         )
     save_png(directory / "annotated.png", annotated)
 
@@ -44,19 +53,26 @@ def save_sample_images(directory, frame, rois):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--profile", type=Path, default=ROOT,
+        "--profile",
+        type=Path,
+        default=ROOT,
         help="Thu muc chua config.json va assets/.",
     )
     parser.add_argument(
-        "--image", type=Path,
+        "--image",
+        type=Path,
         help="Phan tich anh da luu thay vi chup game.",
     )
     parser.add_argument(
-        "--count", type=int, default=3,
+        "--count",
+        type=int,
+        default=3,
         help="So anh chup truc tiep. Bi bo qua khi dung --image.",
     )
     parser.add_argument(
-        "--interval", type=float, default=1.0,
+        "--interval",
+        type=float,
+        default=1.0,
         help="Thoi gian nghi giua hai lan phan tich.",
     )
     args = parser.parse_args()
@@ -86,9 +102,7 @@ def main():
             except PackageNotFoundError:
                 packages[name] = None
         result["packages"] = packages
-        config = json.loads(
-            (profile / "config.json").read_text(encoding="utf-8-sig")
-        )
+        config = json.loads((profile / "config.json").read_text(encoding="utf-8-sig"))
         result["config"] = config
         pytesseract.pytesseract.tesseract_cmd = config["tesseract_cmd"]
         result["tesseract"] = str(pytesseract.get_tesseract_version())
@@ -99,34 +113,25 @@ def main():
         perception = Perception(config, profile)
         if args.image is None:
             stop = start_stop_key()
-            game = GameWindow(
-                config["exe_name"], stop, expected_size=config["client_size"]
-            )
+            game = GameWindow(config["exe_name"], stop, expected_size=config["client_size"])
             actual_fingerprint = game.fingerprint()
             result["actual_fingerprint"] = actual_fingerprint
             if actual_fingerprint != config["fingerprint"]:
                 raise RuntimeError("EXE/DAT khac luc calibration.")
-            print(
-                "KHONG GUI INPUT. Trong 5 giay, chuyen sang game "
-                "va chon nha chinh. F9 de dung."
-            )
+            print("KHONG GUI INPUT. Trong 5 giay, chuyen sang game va chon nha chinh. F9 de dung.")
             if stop.wait(5):
                 raise RuntimeError("Dung theo yeu cau F9.")
 
         count = 1 if args.image else args.count
         for index in range(count):
             frame = (
-                cv2.imread(str(args.image.resolve()))
-                if args.image is not None else game.capture()
+                cv2.imread(str(args.image.resolve())) if args.image is not None else game.capture()
             )
             if frame is None:
                 raise RuntimeError("Khong doc duoc anh.")
             height, width = frame.shape[:2]
             if [width, height] != config["client_size"]:
-                raise RuntimeError(
-                    "Kich thuoc anh khac profile calibration: "
-                    f"{width}x{height}"
-                )
+                raise RuntimeError(f"Kich thuoc anh khac profile calibration: {width}x{height}")
             sample_dir = output / f"sample_{index:03d}"
             # Keep images even if the following OCR call fails.
             save_sample_images(sample_dir, frame, config["rois"])
@@ -141,9 +146,7 @@ def main():
                 "frame_std": float(frame.std()),
                 "state": state,
                 "ui_scores": scores,
-                "ui_matches_threshold": (
-                    min(scores.values()) >= config["template_threshold"]
-                ),
+                "ui_matches_threshold": (min(scores.values()) >= config["template_threshold"]),
             }
             result["samples"].append(sample)
             print(
