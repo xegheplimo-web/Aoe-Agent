@@ -23,7 +23,7 @@ if [ -z "${changed}" ]; then
 fi
 
 forbidden=(
-    'config.json' '.env' '.env.*' '*.env' '.envrc'
+    'config.json' '.env' '.env.*' '*.env' '.envrc' '*/.env*'
     'runs/*' 'diagnostics/*' '.venv/*' 'assets/*.png'
     '*secret*' '*.pem' '*.key' 'node_modules/*'
 )
@@ -43,13 +43,16 @@ done <<< "${changed}"
 allowlist=""
 if [ -n "${REPO}" ] && [ -n "${PR}" ]; then
     body="$(gh pr view "${PR}" --repo "${REPO}" --json body --jq .body)"
-    allowlist="$(echo "${body}" | grep -oiE '^scope:.*' | head -1 | sed -E 's/^scope://I')"
+    allowlist="$(echo "${body}" | grep -oiE '^scope:.*' | head -1 | sed -E 's/^scope://I' || true)"
 fi
 if [ -n "${allowlist// /}" ]; then
     echo "SCOPE allowlist: ${allowlist}"
+    # read -a splits on whitespace WITHOUT pathname expansion — the declared
+    # globs must reach `case` intact, not expanded against the checkout.
+    read -r -a allowed <<< "${allowlist}"
     while IFS= read -r path; do
         matched=0
-        for pattern in ${allowlist}; do
+        for pattern in "${allowed[@]}"; do
             # shellcheck disable=SC2254
             case "${path}" in ${pattern}) matched=1 ;; esac
         done
