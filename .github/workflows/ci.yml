@@ -17,15 +17,19 @@ jobs:
   scope:
     name: 'ci / scope'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: scope guard + secret scan
         if: github.event_name == 'pull_request'
-        run: bash scripts/scope-check.sh
+        run: bash scripts/scope-check.sh "${{ github.repository }}" "${{ github.event.pull_request.number }}"
         env:
           BASE_SHA: origin/${{ github.base_ref }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - if: github.event_name != 'pull_request'
         run: echo "scope guard is a PR-only judge — pass"
 
@@ -79,6 +83,7 @@ jobs:
     name: 'ci / review-gate'
     runs-on: ubuntu-latest
     permissions:
+      contents: read
       pull-requests: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

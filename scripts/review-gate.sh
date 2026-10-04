@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
-# Review Gate (CI judge): merge only after a reviewer has reviewed the CURRENT
-# head SHA and zero review threads remain unresolved.
+# Review Gate (CI judge): merge only after a reviewer has approved or
+# commented on the CURRENT head SHA and zero review threads remain
+# unresolved.
 #
 #   usage: review-gate.sh <owner/repo> <pr-number> <head-sha>
 #
-# Polls until the gate clears, the head moves (stale run exits 0), unresolved
-# findings appear (exit 1 — agent must fix and push), or the timeout hits
-# (exit 1 — request a review, e.g. `@codex review`, then re-run).
+# - review states APPROVED / COMMENTED count as "reviewed"
+# - CHANGES_REQUESTED on the current head fails fast (agent must fix)
+# - DISMISSED / PENDING reviews do not count
+# - threads older than the current diff (isOutdated) do not block
+# - if the head moves mid-run, this run is stale and exits 0
+# - on timeout: request a review (e.g. `@codex review`), then re-run
 set -euo pipefail
 
 REPO="${1:?owner/repo required}"
@@ -17,33 +21,61 @@ NAME="${REPO##*/}"
 DEADLINE=$((SECONDS + ${REVIEW_TIMEOUT_SECONDS:-720}))
 INTERVAL="${REVIEW_INTERVAL_SECONDS:-30}"
 
-QUERY='query($owner:String!,$name:String!,$pr:Int!){
+QUERY='query($owner:String!,$name:String!,$pr:Int!,$cursor:String){
   repository(owner:$owner,name:$name){
     pullRequest(number:$pr){
       headRefOid
-      reviews(last:50){ nodes { author { login } commit { oid } state } }
-      reviewThreads(last:50){ nodes { isResolved isOutdated } }
+      reviews(last:100){ nodes { author { login } commit { oid } state } }
+      reviewThreads(first:100, after:$cursor){
+        pageInfo { hasNextPage endCursor }
+        nodes { isResolved isOutdated }
+      }
     }
   }
 }'
 
+# Collect EVERY review thread page — a gate that samples is not a gate.
+all_threads() {
+    local cursor="null" page unresolved_total=0
+    while :; do
+        page="$(gh api graphql -F owner="${OWNER}" -F name="${NAME}" -F pr="${PR}" \
+            -F cursor="${cursor}" -f query="${QUERY}")"
+        unresolved_total=$((unresolved_total + $(echo "${page}" | jq \
+            '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false and .isOutdated == false)] | length')))
+        if [ "$(echo "${page}" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage')" != "true" ]; then
+            break
+        fi
+        cursor="$(echo "${page}" | jq -r '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor')"
+    done
+    echo "${unresolved_total}"
+}
+
 echo "REVIEW-GATE ${REPO}#${PR} head=${HEAD:0:8} timeout=${REVIEW_TIMEOUT_SECONDS:-720}s"
 while :; do
     out="$(gh api graphql -F owner="${OWNER}" -F name="${NAME}" -F pr="${PR}" -f query="${QUERY}")"
+    pr_json="$(echo "${out}" | jq '.data.repository.pullRequest')"
 
-    current="$(echo "${out}" | jq -r '.data.repository.pullRequest.headRefOid')"
+    current="$(echo "${pr_json}" | jq -r '.headRefOid')"
     if [ "${current}" != "${HEAD}" ]; then
         echo "REVIEW-GATE SKIP — head moved to ${current:0:8}; this run is stale"
         exit 0
     fi
 
-    unresolved="$(echo "${out}" | jq '[.data.repository.pullRequest.reviewThreads.nodes[] | select(.isResolved == false and .isOutdated == false)] | length')"
-    reviewed="$(echo "${out}" | jq --arg head "${HEAD}" '[.data.repository.pullRequest.reviews.nodes[] | select(.commit.oid == $head)] | length')"
+    changes_requested="$(echo "${pr_json}" | jq --arg head "${HEAD}" \
+        '[.reviews.nodes[] | select(.commit.oid == $head and .state == "CHANGES_REQUESTED")] | length')"
+    if [ "${changes_requested}" -gt 0 ]; then
+        echo "REVIEW-GATE FAIL — CHANGES_REQUESTED on ${HEAD:0:8}"
+        exit 1
+    fi
 
+    unresolved="$(all_threads)"
     if [ "${unresolved}" -gt 0 ]; then
         echo "REVIEW-GATE FAIL — ${unresolved} unresolved review thread(s) on ${HEAD:0:8}"
         exit 1
     fi
+
+    reviewed="$(echo "${pr_json}" | jq --arg head "${HEAD}" \
+        '[.reviews.nodes[] | select(.commit.oid == $head and (.state == "APPROVED" or .state == "COMMENTED"))] | length')"
     if [ "${reviewed}" -gt 0 ]; then
         echo "REVIEW-GATE PASS — ${reviewed} review(s) on ${HEAD:0:8}, no unresolved threads"
         exit 0

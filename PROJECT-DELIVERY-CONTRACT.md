@@ -104,11 +104,16 @@ issue body. Enforced twice: locally before push, and by `ci / scope` on the PR.
 git diff --name-only "$BASE_SHA"...HEAD
 ```
 
-Every changed path must match the allowlist and must not match forbidden globs.
-Default forbidden: `.env*`, `config.json`, `runs/`, `diagnostics/`, `.venv/`,
-`assets/*.png`, `node_modules/`, `*secret*`, `*.pem`, `*.key`. `.github/**` is
-not forbidden by default — touching it requires the task to declare it.
-`ci / scope` also secret-scans added lines (token formats, private keys).
+Default forbidden globs: `.env*`, `config.json`, `runs/`, `diagnostics/`,
+`.venv/`, `assets/*.png`, `node_modules/`, `*secret*`, `*.pem`, `*.key`.
+`.github/**` is not forbidden by default — touching it requires the task to
+declare it. `ci / scope` also secret-scans added lines (token formats,
+private keys).
+
+Machine-readable allowlist: the PR body carries a `Scope:` line with
+space-separated globs (`Scope: aoe1/** tests/**`). When present, `ci / scope`
+rejects every changed path outside it; when absent, only the forbidden list
+applies.
 
 Out-of-scope diff ⇒ FAIL, no PR.
 
