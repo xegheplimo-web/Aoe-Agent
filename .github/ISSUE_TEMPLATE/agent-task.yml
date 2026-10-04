@@ -1,0 +1,45 @@
+name: Agent task
+description: Governed task for an AI executor — see PROJECT-DELIVERY-CONTRACT.md
+title: '[task] '
+labels: ['agent:ready']
+body:
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: What must be true when this is done (observable outcome, not steps)
+    validations:
+      required: true
+  - type: textarea
+    id: allowed-paths
+    attributes:
+      label: Allowed paths
+      description: Glob list the agent may modify, one per line
+      placeholder: "src/**\ntests/**"
+    validations:
+      required: true
+  - type: textarea
+    id: forbidden-paths
+    attributes:
+      label: Forbidden paths
+      value: ".github/**\n*.env*"
+    validations:
+      required: false
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: How a reviewer verifies completion beyond `scripts/verify` passing
+    validations:
+      required: true
+  - type: dropdown
+    id: risk
+    attributes:
+      label: Risk
+      options: [TRIVIAL, LOW, MEDIUM, HIGH, CRITICAL]
+      default: 1
+  - type: input
+    id: executor
+    attributes:
+      label: Preferred executor (optional)
+      placeholder: devin / codex / opencode / any

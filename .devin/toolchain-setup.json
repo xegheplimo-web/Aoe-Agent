@@ -1,0 +1,45 @@
+{
+  "timestamp": "2026-10-04T00:00:00Z",
+  "stacks": ["node+typescript(next16)", "python3.11"],
+  "created": [
+    ".devin/config.json",
+    "AGENTS.md",
+    "PROJECT_RULES.md",
+    "PROJECT-DELIVERY-CONTRACT.md",
+    ".editorconfig",
+    ".gitattributes",
+    ".env.example",
+    ".prettierrc.json",
+    ".prettierignore",
+    ".pre-commit-config.yaml",
+    "pyproject.toml",
+    "vitest.config.ts",
+    "scripts/setup.ps1",
+    "scripts/setup.sh",
+    "scripts/verify.ps1",
+    "scripts/verify.sh",
+    "scripts/sync-main.ps1",
+    "scripts/sync-main.sh",
+    "scripts/doctor.ps1",
+    "scripts/doctor.sh",
+    ".github/workflows/ci.yml",
+    ".github/dependabot.yml",
+    ".github/CODEOWNERS",
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    ".github/ISSUE_TEMPLATE/agent-task.yml",
+    "package-lock.json",
+    ".git (git init -b main, baseline commit)"
+  ],
+  "skipped_existing": [
+    "eslint.config.mjs",
+    "tsconfig.json",
+    "requirements.txt",
+    "drizzle.config.json"
+  ],
+  "notes": [
+    "4 pre-existing eslint errors (react-hooks/set-state-in-effect etc.) left untouched — need owner decision",
+    "npm audit: 12 vulnerabilities (4 moderate, 7 high, 1 critical) — not auto-fixed",
+    "npm allow-scripts blocked postinstall for sharp + unrs-resolver",
+    "no GitHub remote configured yet"
+  ]
+}

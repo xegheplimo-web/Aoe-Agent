@@ -1,0 +1,23 @@
+# Devin local config (secrets/overrides — .devin/*.local.json never committed)
+.devin/*.local.json
+
+# Next.js / Node
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Local calibration and private observations
+config.json
+assets/*.png
+runs/
+diagnostics/

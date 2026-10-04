@@ -1,0 +1,29 @@
+# Tool configuration only — this project is requirements.txt-based (see PROJECT_RULES.md).
+# No [project] table on purpose: do not turn this into a packaged project.
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+extend-exclude = [
+    ".venv",
+    "node_modules",
+    ".next",
+    "runs",
+    "diagnostics",
+    "assets",
+]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "."
+strict = false
+ignore_missing_imports = true
+warn_unused_ignores = true
+exclude = '(\.venv|node_modules|\.next|runs|diagnostics|assets|tests)'
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

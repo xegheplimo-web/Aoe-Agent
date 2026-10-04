@@ -1,0 +1,51 @@
+import {
+  boolean,
+  integer,
+  jsonb,
+  pgTable,
+  real,
+  text,
+  timestamp,
+  uuid,
+  varchar,
+} from 'drizzle-orm/pg-core';
+import type { AgentState, DiagnosticSample, RunEvent } from '@/lib/agent-types';
+
+export const agentRuns = pgTable('agent_runs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  label: varchar('label', { length: 180 }).notNull(),
+  sourceName: varchar('source_name', { length: 255 }).notNull(),
+  live: boolean('live'),
+  eventCount: integer('event_count').notNull().default(0),
+  observationCount: integer('observation_count').notNull().default(0),
+  commandsIssued: integer('commands_issued').notNull().default(0),
+  confirmed: integer('confirmed').notNull().default(0),
+  unknownOcr: integer('unknown_ocr').notNull().default(0),
+  meanInterval: real('mean_interval'),
+  exitReason: text('exit_reason').notNull(),
+  decisions: jsonb('decisions').$type<Record<string, number>>().notNull().default({}),
+  commands: jsonb('commands').$type<Record<string, number>>().notNull().default({}),
+  lastState: jsonb('last_state').$type<AgentState | null>(),
+  lastDecision: varchar('last_decision', { length: 100 }),
+  lastReason: text('last_reason'),
+  corruptLines: jsonb('corrupt_lines').$type<number[]>().notNull().default([]),
+  events: jsonb('events').$type<RunEvent[]>().notNull().default([]),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const diagnosticReports = pgTable('diagnostic_reports', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  label: varchar('label', { length: 180 }).notNull(),
+  source: varchar('source', { length: 255 }).notNull(),
+  status: varchar('status', { length: 40 }).notNull(),
+  error: text('error'),
+  sampleCount: integer('sample_count').notNull().default(0),
+  uiFailures: integer('ui_failures').notNull().default(0),
+  unknownFields: integer('unknown_fields').notNull().default(0),
+  meanOcrSeconds: real('mean_ocr_seconds'),
+  minUiScore: real('min_ui_score'),
+  threshold: real('threshold').notNull().default(0.97),
+  clientSize: jsonb('client_size').$type<number[] | null>(),
+  samples: jsonb('samples').$type<DiagnosticSample[]>().notNull().default([]),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
