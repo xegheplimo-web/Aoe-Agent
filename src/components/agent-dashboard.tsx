@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   Activity,
   ArrowRight,
@@ -943,6 +943,33 @@ function DiagnosticsView({
   );
 }
 
+const READY_KEY = 'aoe1-readiness-v01';
+const getServerSnapshot = () => null;
+const subscribeNoop = () => () => {};
+const getReadySnapshot = () => window.localStorage.getItem(READY_KEY);
+const getHashSnapshot = () => window.location.hash.slice(1);
+const subscribeHash = (callback: () => void) => {
+  window.addEventListener('hashchange', callback);
+  window.addEventListener('popstate', callback);
+  return () => {
+    window.removeEventListener('hashchange', callback);
+    window.removeEventListener('popstate', callback);
+  };
+};
+
+function parseReady(raw: string | null): boolean[] {
+  try {
+    const saved: unknown = raw ? JSON.parse(raw) : [];
+    return checklist.map((_, index) => Array.isArray(saved) && saved[index] === true);
+  } catch {
+    return checklist.map(() => false);
+  }
+}
+
+function hashToView(hash: string | null): View {
+  return navigation.some((item) => item.id === hash) ? (hash as View) : 'overview';
+}
+
 export default function AgentDashboard({
   initialRuns,
   initialDiagnostics,
@@ -952,44 +979,29 @@ export default function AgentDashboard({
   initialDiagnostics: DiagnosticRecord[];
   storageReady: boolean;
 }) {
-  const [view, setView] = useState<View>('overview');
+  const hash = useSyncExternalStore(subscribeHash, getHashSnapshot, getServerSnapshot);
+  const view = hashToView(hash);
   const [runs, setRuns] = useState(initialRuns);
   const [diagnostics, setDiagnostics] = useState(initialDiagnostics);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(initialRuns[0]?.id || null);
   const [selectedDiagnosticId, setSelectedDiagnosticId] = useState<string | null>(
     initialDiagnostics[0]?.id || null,
   );
-  const [runDetail, setRunDetail] = useState<RunRecord | null>(null);
-  const [detailLoading, setDetailLoading] = useState(false);
+  const [runResult, setRunResult] = useState<{ id: string; run: RunRecord | null } | null>(null);
+  const runDetail = runResult?.run ?? null;
+  const detailLoading = selectedRunId != null && runResult?.id !== selectedRunId;
   const [importKind, setImportKind] = useState<ImportKind | null>(null);
-  const [ready, setReady] = useState<boolean[]>(Array(checklist.length).fill(false));
+  const storedReady = useSyncExternalStore(subscribeNoop, getReadySnapshot, getServerSnapshot);
+  const [readyDraft, setReadyDraft] = useState<boolean[] | null>(null);
+  const ready = readyDraft ?? parseReady(storedReady);
   const [toast, setToast] = useState('');
   const [menuOpen, setMenuOpen] = useState(false);
 
   useEffect(() => {
-    try {
-      const saved = JSON.parse(window.localStorage.getItem('aoe1-readiness-v01') || '[]');
-      if (Array.isArray(saved)) setReady(checklist.map((_, index) => saved[index] === true));
-    } catch {
-      /* Local storage is optional. */
-    }
-    const syncHash = () => {
-      const fragment = window.location.hash.slice(1);
-      if (navigation.some((item) => item.id === fragment)) setView(fragment as View);
-    };
-    syncHash();
-    window.addEventListener('hashchange', syncHash);
-    return () => window.removeEventListener('hashchange', syncHash);
-  }, []);
-
-  useEffect(() => {
-    if (!selectedRunId) {
-      setRunDetail(null);
-      return;
-    }
+    if (!selectedRunId) return;
     let active = true;
-    setDetailLoading(true);
-    fetch(`/api/runs/${selectedRunId}`)
+    const id = selectedRunId;
+    fetch(`/api/runs/${id}`)
       .then((response) =>
         response.json().then((data) => {
           if (!response.ok) throw new Error(data.error || 'Không đọc được phiên.');
@@ -997,13 +1009,10 @@ export default function AgentDashboard({
         }),
       )
       .then((run) => {
-        if (active) setRunDetail(run);
+        if (active) setRunResult({ id, run });
       })
       .catch(() => {
-        if (active) setRunDetail(null);
-      })
-      .finally(() => {
-        if (active) setDetailLoading(false);
+        if (active) setRunResult({ id, run: null });
       });
     return () => {
       active = false;
@@ -1015,22 +1024,20 @@ export default function AgentDashboard({
     window.setTimeout(() => setToast(''), 3500);
   }
   function navigate(next: View) {
-    setView(next);
+    // pushState does not emit hashchange — dispatch it so the hash-driven view updates.
+    window.history.pushState(null, '', `#${next}`);
+    window.dispatchEvent(new Event('hashchange'));
     setMenuOpen(false);
-    window.location.hash = next;
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
   function toggleReady(index: number) {
-    setReady((previous) => {
-      const next = [...previous];
-      next[index] = !next[index];
-      try {
-        window.localStorage.setItem('aoe1-readiness-v01', JSON.stringify(next));
-      } catch {
-        /* optional */
-      }
-      return next;
-    });
+    const next = ready.map((checked, i) => (i === index ? !checked : checked));
+    setReadyDraft(next);
+    try {
+      window.localStorage.setItem(READY_KEY, JSON.stringify(next));
+    } catch {
+      /* optional */
+    }
   }
   function handleCreated(item: RunRecord | DiagnosticRecord) {
     if (importKind === 'run') {
@@ -1198,7 +1205,7 @@ export default function AgentDashboard({
               runs={runs}
               selectedId={selectedRunId}
               selectRun={setSelectedRunId}
-              detail={runDetail}
+              detail={selectedRunId ? runDetail : null}
               loading={detailLoading}
               openImport={() => setImportKind('run')}
               deleteRun={deleteRun}
