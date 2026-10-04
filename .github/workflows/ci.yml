@@ -81,6 +81,7 @@ jobs:
     permissions:
       pull-requests: read
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: wait for review on current head, zero unresolved threads
         if: github.event_name == 'pull_request'
         run: bash scripts/review-gate.sh "${{ github.repository }}" "${{ github.event.pull_request.number }}" "${{ github.event.pull_request.head.sha }}"
