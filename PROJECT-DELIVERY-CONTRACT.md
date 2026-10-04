@@ -1,20 +1,38 @@
-# PROJECT DELIVERY CONTRACT
+# PROJECT DELIVERY CONTRACT — v2
 
 Canonical autonomous-delivery pipeline for this repository. Every agent (human or
 AI) that touches code here MUST follow it. Stack-specific tooling decisions live
 in `PROJECT_RULES.md`; this document owns **process invariants**.
 
+v2 change: **review is a merge precondition, not a post-merge event.** Auto-merge
+may only be enabled after the current head SHA has been reviewed and zero
+unresolved review threads remain.
+
 ## 0. Authority model
 
 ```
+Owner (Duy)
+├── Governor  → Administration, rulesets, secrets, environments, webhooks
+└── Executor  → Issues, branches, code, commits, pushes, PRs, CI, fixes, merges
+
 GitHub (issues + labels + PR + rulesets) = control plane, queue, policy, evidence
 origin/main                              = implementation source of truth
 local main                               = read-only mirror/cache ONLY
 Hermes (or repo owner)                   = brain / dispatcher / judge
 Executors (Devin, Codex, ...)            = plan → code → verify → report
-CI                                       = deterministic judge
+CI (GitHub Actions)                      = deterministic JUDGE — never fixes code
 Artifact digest                          = deployment identity
 ```
+
+Executors get full development lifecycle rights — but NEVER the right to disable
+the controls judging them:
+
+| GitHub permission                                             | Executor                            |
+| ------------------------------------------------------------- | ----------------------------------- |
+| Metadata, Contents, Issues, Pull requests, Actions, Workflows | Read & Write                        |
+| Checks, Commit statuses                                       | Read & Write (custom gates only)    |
+| Secrets, Administration, Environments, Webhooks, Billing      | NEVER                               |
+| Ruleset bypass / direct push to `main`                        | NEVER — `bypass_actors` stays empty |
 
 ## 1. Hard invariants — violation ⇒ BLOCKED
 
@@ -24,12 +42,15 @@ Artifact digest                          = deployment identity
    a possibly-stale local `main`.
 4. Every agent works in its **own worktree + own branch**. No shared working dirs.
 5. An Issue has exactly **one owner** (one claim lease at a time).
-6. Merge is followed by **fresh-main CI** on a clean environment.
-7. After merge, local `main` is synced `git pull --ff-only` back to `origin/main`.
-8. A **fresh clone must reproduce** the project (setup → deps → build → test).
+6. **Every commit invalidates prior review and CI.** HEAD `abc` reviewed/green
+   means nothing for `def` — new head requires new review + new CI before merge.
+7. Merge is followed by **fresh-main CI** on a clean environment.
+8. After merge, local `main` is synced `git pull --ff-only` back to `origin/main`.
+9. A **fresh clone must reproduce** the project (setup → deps → build → test).
 
 If any invariant cannot hold: stop, mark `agent:blocked`, report — never
-"fix it by hand" (no `reset --hard`, `rebase`, `stash`, `clean -fd` on shared state).
+"fix it by hand" (no `reset --hard`, `rebase`, `stash`, `clean -fd` on shared
+state).
 
 ## 2. Sync Gate — before claiming ANY task
 
@@ -53,34 +74,47 @@ BASE_SHA=$(git rev-parse origin/main)          # record it
 git worktree add ../worktrees/<issue>-<slug> -b <type>/<issue>-<slug> $BASE_SHA
 ```
 
-Record in the claim: `ISSUE`, `BASE_SHA`, `AGENT`, `BRANCH`, `WORKTREE`, `claimed_at`.
-`git checkout -b` from local `main` is forbidden.
+Record in the claim: `ISSUE`, `BASE_SHA`, `AGENT`, `BRANCH`, `WORKTREE`,
+`claimed_at`. `git checkout -b` from local `main` is forbidden.
 
 ## 4. Issue lifecycle — label state machine
 
 ```
 agent:ready → agent:claimed → agent:planning → agent:coding → agent:verifying
-→ agent:pr-open → agent:ci → agent:merge-queue → agent:merged
-→ agent:post-merge → agent:deployed → agent:done
-Failure: agent:blocked · agent:needs-human · agent:ci-failed · agent:conflict · agent:retry
+→ agent:pr-open → agent:ci + agent:review
+    ├── CI fail      → agent:ci-failed     → agent:fixing → agent:verifying → agent:ci
+    ├── review fail  → agent:review-failed → agent:fixing → agent:verifying → agent:review
+    └── all green    → agent:merge-queue → agent:merged → agent:post-merge → agent:done
+
+Stuck: agent:blocked · agent:needs-human · agent:conflict · agent:retry
 ```
 
 - Exactly one state label per issue at a time.
-- `agent:ready` is the ONLY entry point; `agent:done` is the ONLY exit.
+- `agent:ready` is the ONLY entry point; `agent:done` is the ONLY label allowed
+  to close an issue.
 - Claims carry a lease; a stale lease (dead agent, no open PR/branch activity)
   may be reset to `agent:ready` by the dispatcher after verification.
 
 ## 5. Scope Guard
 
 Each agent task must declare **allowed paths** and **forbidden paths** in the
-issue body. Before opening a PR:
+issue body. Enforced twice: locally before push, and by `ci / scope` on the PR.
 
 ```bash
 git diff --name-only "$BASE_SHA"...HEAD
 ```
 
-Every changed path must match the allowlist and must not match forbidden globs
-(default forbidden: `.github/**`, `infra/**`, `**/secrets*`, `*.env*`).
+Default forbidden globs: `.env*`, `config.json`, `runs/`, `diagnostics/`,
+`.venv/`, `assets/*.png`, `node_modules/`, `*secret*`, `*.pem`, `*.key`.
+`.github/**` is not forbidden by default — touching it requires the task to
+declare it. `ci / scope` also secret-scans added lines (token formats,
+private keys).
+
+Machine-readable allowlist: the PR body carries a `Scope:` line with
+space-separated globs (`Scope: aoe1/** tests/**`). When present, `ci / scope`
+rejects every changed path outside it; when absent, only the forbidden list
+applies.
+
 Out-of-scope diff ⇒ FAIL, no PR.
 
 ## 6. Toolchain discipline
@@ -92,25 +126,64 @@ Out-of-scope diff ⇒ FAIL, no PR.
 - `scripts/setup.ps1` reproduces the environment; `scripts/doctor.ps1` reports
   capability health (PASS/FAIL/WARN/NOT_APPLICABLE).
 
-## 7. PR → CI pipeline
+## 7. PR → CI + review pipeline
 
 Required checks (canonical names — do not rename; see `.github/workflows/ci.yml`):
 
 ```
+ci / scope           → forbidden paths + secret scan on the PR diff      (PR only)
 ci / verify          → npm ci · lint · typecheck · vitest · prettier · build
-ci / verify-python   → ruff · mypy · unittest (windows-latest)
+ci / verify-python   → ruff · mypy · unittest                            (windows)
+ci / security        → npm audit (critical) + pip-audit
+ci / review-gate     → reviewer on current head SHA + 0 unresolved       (PR only)
 ```
 
-PR requirements: `Refs #<issue>` (NOT `Closes` — merge ≠ done), base SHA recorded,
-verify output attached, scope diff clean, no secrets, lockfile changes reviewed.
+Rules:
+
+- PR body carries `Refs #<issue>` (NOT `Closes` — merge ≠ done), base SHA,
+  verify output, scope diff clean, no secrets, lockfile changes reviewed.
+- **Auto-merge is enabled ONLY after `ci / review-gate` passes** — i.e. a review
+  exists on the current head SHA and no unresolved threads. Never enable
+  auto-merge at PR-open time.
+- Review findings are fixed like CI failures (§7a). Every fix push creates a
+  new head → prior review/CI no longer count.
+- Ruleset additionally enforces `required_conversation_resolution`, so an
+  unresolved thread hard-blocks the merge button itself.
+
+## 7a. Automatic remediation loop — bounded
+
+```
+CI or review FAIL
+  → read failed job / review thread
+  → identify root cause
+  → fix in worktree
+  → scripts/verify.ps1
+  → commit + push
+  → CI + review run again on the NEW head
+```
+
+`MAX_FIX_CYCLES = 5`. On the 5th failure the agent stops, applies
+`agent:blocked`, and comments:
+
+```
+BLOCKED
+Attempts: 5
+Failure: <what failed>
+Suspected root cause: <analysis>
+Changed: <files touched>
+Recommended next action: <what a human should do>
+```
+
+No infinite repair loops. CI is the judge — it never edits source.
 
 ## 8. Merge
 
 - **Squash merge only.** Merge commits and rebase-merge disabled on the repo.
-- Use the **merge queue** when ≥2 agent PRs can be in flight (CI validates the
-  PR against the freshest target state). Low-traffic repos may use auto-merge.
+- Use the **merge queue** when ≥2 agent PRs can be in flight; low-traffic repos
+  may use auto-merge (armed only after the review gate clears, §7).
 - Third-party GitHub Actions MUST be pinned by full commit SHA (`PROJECT_RULES`
   lists them; `dependabot.yml` keeps them current).
+- NO agent bypasses the PR path: `git push origin main` is never permitted.
 
 ## 9. Post-merge reconciliation
 
@@ -149,15 +222,19 @@ Today: NOT_APPLICABLE.
 
 ## 13. Security
 
-- `permissions: contents: read` at workflow top level; elevate per job only.
+- `permissions: contents: read` at workflow top level; elevate per job only
+  (`review-gate` gets `pull-requests: read`).
 - `.env*` and anything matching `*secret*`, `*token*` never enters git or logs.
 - Live-input mode (`run.py --live`) is a HUMAN gate — agents must not trigger it.
 - Dependency changes are review-gated (lockfile diff in every PR).
+- Executors never hold: Secrets, Administration, Environments, Webhooks,
+  Billing, ruleset bypass (§0).
 
 ## 14. BLOCKED conditions (stop and report)
 
 - On `main` with source edits required · dirty worktree before claim
 - `main` diverged from `origin/main` · tree-SHA mismatch after sync
-- Claim conflict (issue already leased) · out-of-scope diff
-- `verify` fails · secret detected · missing `origin` remote
+- Claim conflict (issue already leased) · out-of-scope diff · secret detected
+- `verify` fails after MAX_FIX_CYCLES · review thread unresolved after fixes
+- `ci / review-gate` times out (no reviewer) · missing `origin` remote
 - Anything requiring destructive git commands on shared state

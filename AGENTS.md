@@ -24,3 +24,5 @@ sync, PR gates) are in `PROJECT-DELIVERY-CONTRACT.md`; stack decisions are in
 - Never edit code while on `main` — every task starts from an exact `origin/main` SHA in its own branch/worktree.
 - Never commit: `.env`, `runs/`, `diagnostics/`, `assets/*.png`, `config.json`, `.venv/`, game files.
 - `run.py --live` sends real mouse/keyboard input to the game window — read README §2/§4 before enabling.
+- Never enable auto-merge until `ci / review-gate` is green on the CURRENT head — a review on an older SHA does not count (v2 contract §7).
+- CI/review fixes are bounded: MAX_FIX_CYCLES = 5, then `agent:blocked` with a report — never loop forever.
