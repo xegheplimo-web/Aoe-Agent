@@ -11,10 +11,16 @@ function Run-Step([string]$Name, [scriptblock]$Cmd) {
     if ($LASTEXITCODE -ne 0) { $script:failed += $Name }
 }
 
-$py = Join-Path $root '.venv\Scripts\python.exe'
-if (-not (Test-Path $py)) {
-    $py = 'python'
-    Write-Host 'WARN: .venv not found — falling back to system python (run scripts\setup.ps1)'
+# Interpreter resolution: AOE1_PYTHON env override (for git worktrees, which cannot
+# share a .venv) > local .venv > system python.
+if ($env:AOE1_PYTHON -and (Test-Path $env:AOE1_PYTHON)) {
+    $py = $env:AOE1_PYTHON
+} else {
+    $py = Join-Path $root '.venv\Scripts\python.exe'
+    if (-not (Test-Path $py)) {
+        $py = 'python'
+        Write-Host 'WARN: .venv not found — falling back to system python (run scripts\setup.ps1 or set AOE1_PYTHON)'
+    }
 }
 
 Run-Step 'lint'      { & npm.cmd run lint }

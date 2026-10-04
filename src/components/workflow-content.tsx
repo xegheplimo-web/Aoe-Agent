@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import {
   Archive,
   ArrowRight,
@@ -230,17 +230,29 @@ const environmentFields: { key: keyof Environment; label: string; placeholder: s
   { key: 'wrapper', label: 'Wrapper đồ họa', placeholder: 'Không dùng / tên wrapper' },
 ];
 
+const ENV_KEY = 'aoe1-environment-v01';
+const subscribeNoop = () => () => {};
+const getEnvironmentSnapshot = () => window.localStorage.getItem(ENV_KEY);
+const getServerSnapshot = () => null;
+
+function parseEnvironment(raw: string | null): Environment {
+  if (!raw) return emptyEnvironment;
+  try {
+    return { ...emptyEnvironment, ...(JSON.parse(raw) as Partial<Environment>) };
+  } catch {
+    return emptyEnvironment;
+  }
+}
+
 export function DocsView({ notify }: Props) {
-  const [environment, setEnvironment] = useState<Environment>(emptyEnvironment);
+  const storedEnvironment = useSyncExternalStore(
+    subscribeNoop,
+    getEnvironmentSnapshot,
+    getServerSnapshot,
+  );
+  const [draft, setDraft] = useState<Environment | null>(null);
+  const environment = draft ?? parseEnvironment(storedEnvironment);
   const [saved, setSaved] = useState(false);
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem('aoe1-environment-v01');
-      if (stored) setEnvironment({ ...emptyEnvironment, ...JSON.parse(stored) });
-    } catch {
-      /* Private browsing can disable storage. */
-    }
-  }, []);
 
   function saveEnvironment() {
     try {
@@ -285,7 +297,7 @@ export function DocsView({ notify }: Props) {
                 <input
                   value={environment[field.key]}
                   onChange={(event) =>
-                    setEnvironment({ ...environment, [field.key]: event.target.value })
+                    setDraft({ ...environment, [field.key]: event.target.value })
                   }
                   placeholder={field.placeholder}
                 />

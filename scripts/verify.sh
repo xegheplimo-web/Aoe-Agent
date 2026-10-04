@@ -11,8 +11,10 @@ run() {
     "$@" || failed+=("$name")
 }
 
-PY=".venv/Scripts/python.exe"
-[ -f "$PY" ] || PY=".venv/bin/python"
+# AOE1_PYTHON env override (git worktrees cannot share a .venv) > local .venv > system python.
+PY="${AOE1_PYTHON:-}"
+[ -n "$PY" ] && [ ! -f "$PY" ] && PY=""
+[ -z "$PY" ] && { PY=".venv/Scripts/python.exe"; [ -f "$PY" ] || PY=".venv/bin/python"; }
 [ -f "$PY" ] || PY="python"
 
 run lint npm run lint
