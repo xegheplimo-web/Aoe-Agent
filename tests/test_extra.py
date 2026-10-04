@@ -6,8 +6,9 @@ from unittest.mock import patch
 import cv2
 import numpy as np
 
-from aoe1.policy import EconomyPolicy
-from aoe1.vision import Perception, crop
+from aoe1.perception import Perception, crop
+from aoe1.skills import TrainVillagerSkill
+from aoe1.world import GameState, Population, Resources
 
 
 class VisionTests(unittest.TestCase):
@@ -19,7 +20,10 @@ class VisionTests(unittest.TestCase):
         assets.mkdir()
         rng = np.random.default_rng(7)
         self.frame = rng.integers(
-            20, 230, size=(32, 64, 3), dtype=np.uint8,
+            20,
+            230,
+            size=(32, 64, 3),
+            dtype=np.uint8,
         )
         rois = {
             "food": [0, 0, 8, 8],
@@ -40,7 +44,9 @@ class VisionTests(unittest.TestCase):
         self.perception = Perception(config, root)
 
     def read_state(
-        self, food_text="500", food_confidence=90,
+        self,
+        food_text="500",
+        food_confidence=90,
         population_text="3/12",
     ):
         fake_results = [
@@ -51,7 +57,9 @@ class VisionTests(unittest.TestCase):
             {"text": population_text, "confidence": 90},
         ]
         with patch.object(
-            self.perception, "read_text", side_effect=fake_results,
+            self.perception,
+            "read_text",
+            side_effect=fake_results,
         ):
             return self.perception.observe(self.frame)
 
@@ -72,7 +80,7 @@ class VisionTests(unittest.TestCase):
 
     def test_nonfinite_tesseract_confidence_is_unknown(self):
         with patch(
-            "aoe1.vision.pytesseract.image_to_data",
+            "aoe1.perception.hud.pytesseract.image_to_data",
             return_value={"text": ["500"], "conf": ["nan"]},
         ):
             result = self.perception.read_text(crop(self.frame, [0, 0, 8, 8]))
@@ -95,7 +103,7 @@ class VisionTests(unittest.TestCase):
 
     def test_nonfinite_template_score_fails_closed(self):
         with patch(
-            "aoe1.vision.cv2.matchTemplate",
+            "aoe1.perception.hud.cv2.matchTemplate",
             return_value=np.array([[np.nan]], dtype=np.float32),
         ):
             scores = self.perception.ui_scores(self.frame)
@@ -108,33 +116,36 @@ class VisionTests(unittest.TestCase):
 
 
 def economy_state(food=500, population=3, capacity=12):
-    return {"food": food, "pop_used": population, "pop_cap": capacity}
+    return GameState(
+        resources=Resources(food=food),
+        population=Population(used=population, cap=capacity),
+    )
 
 
-class PolicyEdgeTests(unittest.TestCase):
+class SkillEdgeTests(unittest.TestCase):
     def test_food_must_be_sufficient_in_both_observations(self):
-        policy = EconomyPolicy(50)
-        policy.decide(economy_state(food=25), 0)
-        action, _ = policy.decide(economy_state(food=100), 1)
+        skill = TrainVillagerSkill(50)
+        skill.decide(economy_state(food=25), 0)
+        action, _ = skill.decide(economy_state(food=100), 1)
         self.assertEqual(action, "WAIT")
-        action, _ = policy.decide(economy_state(food=100), 2)
+        action, _ = skill.decide(economy_state(food=100), 2)
         self.assertEqual(action, "TRAIN_VILLAGER")
 
     def test_population_drop_stops_after_stable_observation(self):
-        policy = EconomyPolicy(50)
-        policy.sent(3, 0)
-        policy.decide(economy_state(population=2), 1)
-        action, _ = policy.decide(economy_state(population=2), 2)
+        skill = TrainVillagerSkill(50)
+        skill.sent(3, 0)
+        skill.decide(economy_state(population=2), 1)
+        action, _ = skill.decide(economy_state(population=2), 2)
         self.assertEqual(action, "STOP")
-        self.assertEqual(policy.confirmed, 0)
+        self.assertEqual(skill.confirmed, 0)
 
     def test_unexpected_population_jump_is_not_confirmed(self):
-        policy = EconomyPolicy(50)
-        policy.sent(3, 0)
-        policy.decide(economy_state(population=5), 1)
-        action, _ = policy.decide(economy_state(population=5), 2)
+        skill = TrainVillagerSkill(50)
+        skill.sent(3, 0)
+        skill.decide(economy_state(population=5), 1)
+        action, _ = skill.decide(economy_state(population=5), 2)
         self.assertEqual(action, "STOP")
-        self.assertEqual(policy.confirmed, 0)
+        self.assertEqual(skill.confirmed, 0)
 
 
 if __name__ == "__main__":

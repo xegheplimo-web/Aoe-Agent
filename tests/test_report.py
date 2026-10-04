@@ -23,15 +23,23 @@ class ReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             run = Path(directory)
             event = {
-                "type": "observation", "elapsed": 1, "live": False,
-                "action": "TRAIN_VILLAGER", "confirmed": 0,
+                "type": "observation",
+                "elapsed": 1,
+                "live": False,
+                "action": "TRAIN_VILLAGER",
+                "confirmed": 0,
                 "state": {
-                    "food": 500, "wood": 100, "gold": 0, "stone": 0,
-                    "pop_used": 3, "pop_cap": 12,
+                    "food": 500,
+                    "wood": 100,
+                    "gold": 0,
+                    "stone": 0,
+                    "pop_used": 3,
+                    "pop_cap": 12,
                 },
             }
             (run / "events.jsonl").write_text(
-                json.dumps(event) + "\n", encoding="utf-8",
+                json.dumps(event) + "\n",
+                encoding="utf-8",
             )
             (run / "exit.txt").write_text("Dry run finished\n", encoding="utf-8")
             with patch.object(sys, "argv", ["report.py", str(run)]), redirect_stdout(io.StringIO()):

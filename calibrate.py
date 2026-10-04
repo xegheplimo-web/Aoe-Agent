@@ -7,8 +7,8 @@ from pathlib import Path
 import cv2
 import pytesseract
 
-from aoe1.desktop import GameWindow, start_stop_key
-from aoe1.vision import crop, save_png
+from aoe1.perception import crop, save_png
+from aoe1.platform import GameWindow, start_stop_key
 
 ROOT = Path(__file__).resolve().parent
 FIELDS = (
