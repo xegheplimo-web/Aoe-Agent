@@ -1,5 +1,5 @@
 # Python 3.11; pywin32 is only needed for live capture/input on Windows.
-numpy>=1.26,<3
+numpy>=2.5.3,<3
 opencv-python>=4.9,<5
 mss>=9,<11
 PyAutoGUI>=0.9.54,<1
