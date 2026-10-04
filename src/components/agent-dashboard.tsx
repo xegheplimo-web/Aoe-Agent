@@ -946,7 +946,13 @@ function DiagnosticsView({
 const READY_KEY = 'aoe1-readiness-v01';
 const getServerSnapshot = () => null;
 const subscribeNoop = () => () => {};
-const getReadySnapshot = () => window.localStorage.getItem(READY_KEY);
+const getReadySnapshot = () => {
+  try {
+    return window.localStorage.getItem(READY_KEY);
+  } catch {
+    return null;
+  }
+};
 const getHashSnapshot = () => window.location.hash.slice(1);
 const subscribeHash = (callback: () => void) => {
   window.addEventListener('hashchange', callback);
