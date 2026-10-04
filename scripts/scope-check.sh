@@ -27,8 +27,18 @@ forbidden=(
     'runs/*' 'diagnostics/*' '.venv/*' 'assets/*.png'
     '*secret*' '*.pem' '*.key' 'node_modules/*'
 )
+# Tracked templates that would otherwise trip the env patterns.
+exceptions=('.env.example')
 fail=0
 while IFS= read -r path; do
+    skip=0
+    for exception in "${exceptions[@]}"; do
+        if [ "${path}" = "${exception}" ]; then
+            skip=1
+            break
+        fi
+    done
+    [ "${skip}" -eq 1 ] && continue
     for pattern in "${forbidden[@]}"; do
         # shellcheck disable=SC2254
         case "${path}" in ${pattern})
@@ -63,7 +73,7 @@ if [ -n "${allowlist// /}" ]; then
     done <<< "${changed}"
 fi
 
-added="$(git diff --unified=0 "${BASE}...HEAD" -- . ':(exclude)package-lock.json' | grep -E '^\+' || true)"
+added="$(git diff --unified=0 "${BASE}...HEAD" | grep -E '^\+' || true)"
 secret_pattern='ghp_[A-Za-z0-9]{20,}|gho_[A-Za-z0-9]{20,}|ghu_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|BEGIN [A-Z ]*PRIVATE KEY'
 if echo "${added}" | grep -nE "${secret_pattern}"; then
     echo "SCOPE FAIL — secret-looking content in added lines"
